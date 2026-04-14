@@ -1,0 +1,34 @@
+Observation
+Condition
+dateTime
+Procedure
+DiagnosticReport  
+NutritionOrder  
+FamilyMemberHistory  
+HealthcareService
+Immunization
+Patient.identifier
+Medication
+Organization
+Patient
+Practitioner
+CarePlan  
+Quantity
+Substance
+Activity
+Date
+Diagnostic Procedure
+Diet
+Dietary Regimen  
+Disease
+Factor
+Finding
+Intervention
+Laboratory Finding 
+Laboratory Test 
+Measurement
+Medical Record Number
+Medication Class
+Instruction  
+Specialty
+Symptom
