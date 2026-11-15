@@ -245,6 +245,8 @@ def compute_kgbertscore(
     kg_embed_threshold: float = 0.85,
     src_re: list[dict] | None = None,
     hyp_re: list[dict] | None = None,
+    alpha: float = 0.5,
+    bert_f1: float | None = None,
 ) -> dict:
     """
     Compute KGBERTScore for one document pair.
@@ -307,6 +309,12 @@ def compute_kgbertscore(
         result["kg_rel_embed_recall"]    = None
         result["kg_rel_embed_f1"]        = None
 
+    # --- Combined KG-BERTScore: F_KG-BERT = α · F_KG + (1 − α) · F_BERT ---
+    if bert_f1 is not None:
+        result["kg_bertscore_f1"] = round(alpha * ef + (1 - alpha) * bert_f1, 5)
+    else:
+        result["kg_bertscore_f1"] = None
+
     return result
 
 
@@ -328,6 +336,7 @@ def evaluate_pair(
     kg_embed_threshold: float = 0.85,
     src_re: list[dict] | None = None,
     hyp_re: list[dict] | None = None,
+    alpha: float = 0.5,
 ) -> dict:
     row: dict = {}
 
@@ -384,6 +393,8 @@ def evaluate_pair(
             kg_embed_threshold=kg_embed_threshold,
             src_re=alignment.agg_src_re or None,
             hyp_re=alignment.agg_hyp_re or None,
+            alpha=alpha,
+            bert_f1=F1[0],
         )
         row.update(kg)
     else:
@@ -394,6 +405,7 @@ def evaluate_pair(
             "kg_n_src_relations", "kg_n_hyp_relations",
             "kg_embed_precision", "kg_embed_recall", "kg_embed_f1",
             "kg_rel_embed_precision", "kg_rel_embed_recall", "kg_rel_embed_f1",
+            "kg_bertscore_f1",
         ):
             row[k] = None
 
@@ -420,6 +432,8 @@ _FIELDNAMES = [
     "kg_embed_precision", "kg_embed_recall", "kg_embed_f1",
     # KGBERTScore — embedding-based relation match
     "kg_rel_embed_precision", "kg_rel_embed_recall", "kg_rel_embed_f1",
+    # KGBERTScore — combined
+    "kg_bertscore_f1",
 ]
 
 
@@ -442,6 +456,7 @@ def process(
     rel_src: Optional[str] = None,
     rel_hyp: Optional[str] = None,
     kg_embed_threshold: float = 0.85,
+    alpha: float = 0.5,
     max_docs: Optional[int] = None,
 ) -> None:
     """Run the full evaluation pipeline with explicitly supplied parameters."""
@@ -576,6 +591,7 @@ def process(
             src_triples=src_triples,
             hyp_triples=hyp_triples,
             kg_embed_threshold=kg_embed_threshold,
+            alpha=alpha,
             src_re=src_re_rows,
             hyp_re=hyp_re_rows,
         )
@@ -615,6 +631,9 @@ def process(
         "mean_kg_rel_embed_f1":        _mean("kg_rel_embed_f1"),
         "mean_kg_rel_embed_precision": _mean("kg_rel_embed_precision"),
         "mean_kg_rel_embed_recall":    _mean("kg_rel_embed_recall"),
+        # KGBERTScore — combined
+        "alpha":                       alpha,
+        "mean_kg_bertscore_f1":        _mean("kg_bertscore_f1"),
     }
 
     # --- Write TSV ---
@@ -664,6 +683,7 @@ def main() -> None:
     DEFAULT_REL_SRC          = None
     DEFAULT_REL_HYP          = None
     DEFAULT_KG_EMBED_THRESHOLD = 0.85
+    DEFAULT_ALPHA            = 0.5
     DEFAULT_MAX_DOCS         = None                          # None → all documents
     # ------------------------------------------------------------------
 
@@ -684,6 +704,7 @@ def main() -> None:
             rel_src=DEFAULT_REL_SRC,
             rel_hyp=DEFAULT_REL_HYP,
             kg_embed_threshold=DEFAULT_KG_EMBED_THRESHOLD,
+            alpha=DEFAULT_ALPHA,
             max_docs=DEFAULT_MAX_DOCS,
         )
         return
@@ -777,6 +798,14 @@ def main() -> None:
         help=f"BERTScore F1 threshold for the embedding-based entity comparison "
              f"(default: {DEFAULT_KG_EMBED_THRESHOLD}).",
     )
+    kg_group.add_argument(
+        "--alpha",
+        type=float,
+        default=DEFAULT_ALPHA,
+        metavar="FLOAT",
+        help=f"Interpolation weight α for F_KG-BERT = α·F_KG + (1−α)·F_BERT "
+             f"(default: {DEFAULT_ALPHA}).",
+    )
 
     parser.add_argument(
         "--max-docs",
@@ -803,6 +832,7 @@ def main() -> None:
         rel_src=args.rel_src,
         rel_hyp=args.rel_hyp,
         kg_embed_threshold=args.kg_embed_threshold,
+        alpha=args.alpha,
         max_docs=args.max_docs,
     )
 
